@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Biblioteca de Libros</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+    form { display: grid; grid-template-columns: 1fr 1fr 90px auto; gap: 8px; margin-bottom: 12px; }
+    input { padding: 8px; }
+    #buscar { width: 100%; box-sizing: border-box; margin-bottom: 12px; }
+    li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #ddd; }
+    li div { flex: 1; }
+    small { color: #666; }
+    .estado { font-size: 12px; padding: 2px 8px; border-radius: 10px; }
+    .libre { background: #d9f2e0; }
+    .prestado { background: #f7d9d9; }
+  </style>
+</head>
+<body>
+  <h1>Biblioteca de Libros</h1>
+  <form id="form">
+    <input id="titulo" placeholder="Título" required>
+    <input id="autor" placeholder="Autor" required>
+    <input id="anio" type="number" placeholder="Año">
+    <button>Agregar</button>
+  </form>
+  <input id="buscar" placeholder="Buscar por título o autor...">
+  <ul id="lista" style="list-style:none;padding:0"></ul>
+  <script>
+    const lista = document.getElementById('lista');
+    const api = (url, metodo = 'GET', cuerpo) => fetch(url, {
+      method: metodo,
+      headers: { 'Content-Type': 'application/json' },
+      body: cuerpo ? JSON.stringify(cuerpo) : undefined
+    });
+    async function cargar() {
+      const q = encodeURIComponent(document.getElementById('buscar').value);
+      const libros = await (await api('/api/libros?q=' + q)).json();
+      lista.innerHTML = '';
+      libros.forEach(l => {
+        const li = document.createElement('li');
+        li.innerHTML = '<div><strong></strong><br><small></small></div><span class="estado"></span><button class="p"></button><button class="e">Eliminar</button>';
+        li.querySelector('strong').textContent = l.titulo;
+        li.querySelector('small').textContent = l.autor + (l.anio ? ' (' + l.anio + ')' : '');
+        const est = li.querySelector('.estado');
+        est.textContent = l.disponible ? 'Disponible' : 'Prestado';
+        est.className = 'estado ' + (l.disponible ? 'libre' : 'prestado');
+        const bp = li.querySelector('.p');
+        bp.textContent = l.disponible ? 'Prestar' : 'Devolver';
+        bp.onclick = async () => { await api('/api/libros/' + l.id + (l.disponible ? '/prestar' : '/devolver'), 'POST'); cargar(); };
+        li.querySelector('.e').onclick = async () => { await api('/api/libros/' + l.id, 'DELETE'); cargar(); };
+        lista.appendChild(li);
+      });
+    }
+    document.getElementById('form').onsubmit = async e => {
+      e.preventDefault();
+      const anio = document.getElementById('anio').value;
+      await api('/api/libros', 'POST', {
+        titulo: document.getElementById('titulo').value,
+        autor: document.getElementById('autor').value,
+        anio: anio ? Number(anio) : undefined
+      });
+      e.target.reset();
+      cargar();
+    };
+    document.getElementById('buscar').oninput = cargar;
+    cargar();
+  </script>
+</body>
+</html>
